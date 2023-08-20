@@ -1,70 +1,55 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { v4 as uuidv4 } from "uuid";
 import Messages from "./Components/Messages";
 import Input from "./Components/Input";
+
+import { randomColor } from "./utils/nameGenerator";
+import { randomName } from "./utils/nameGenerator";
 import "./index";
 import "./App.css";
 
-const randomName = () => {
-  const names = ["Martina", "Ivan", "Mattea", "David", "Eva"];
-  const randomIndex = Math.floor(Math.random() * names.length);
-  return names[randomIndex];
-};
-
-// Function to generate a random color (HEX format)
-const randomColor = () => {
-  return "#" + Math.floor(Math.random() * 16777215).toString(16);
-};
-
 const ChatApp = () => {
-  const [messages, setMessages] = useState([
-    {
-      messages: [],
-      member: {
-        username: randomName(),
-        color: randomColor(),
-      },
-    },
-  ]);
-
+  const [messages, setMessages] = useState([]);
   const [member, setMember] = useState({
     username: randomName(),
     color: randomColor(),
   });
 
-  useEffect(() => {
-    const drone = new window.Scaledrone("kQHdfneFxV1mQIVf", {
+  const droneRef = useRef(
+    new window.Scaledrone(process.env.REACT_APP_SCALEDRONE_KEY, {
       data: member,
-    });
+    })
+  );
 
+  const onSendMessage = (message) => {
+    console.log("Send msg triggered");
+    droneRef.current.publish({
+      room: process.env.REACT_APP_SCALEDRONE_ROOM,
+      message,
+    });
+  };
+
+  useEffect(() => {
+    const drone = droneRef.current;
     drone.on("open", (error) => {
       if (error) {
         console.error(error);
         return;
       }
-
-      const updatedMember = { ...member, id: drone.clientId };
-      setMember(updatedMember);
+      setMember((prevMember) => ({ ...prevMember, id: drone.clientId }));
     });
 
-    const room = drone.subscribe("MartinaKelavaApp");
+    const room = drone.subscribe(process.env.REACT_APP_SCALEDRONE_ROOM);
     room.on("data", (data, member) => {
-      setMessages((prevMessages) => [...prevMessages, { member, text: data }]);
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { id: uuidv4(), member, text: data },
+      ]);
     });
-
-    // Cleanup function for the effect
-    return () => {
-      drone.close();
-      room.unsubscribe();
-    };
-  }, [member]);
-
-  const onSendMessage = (text) => {
-    // Your logic for sending messages goes here
-  };
+  }, []);
 
   return (
     <div className="YourComponent">
-      <h1>Chat App</h1>
       <div className="App">
         <div className="App-header">
           <h1>My Chat App</h1>
